@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./components/providers";
 import { AppHeader } from "./components/app-header";
+import { AppFooter } from "./components/app-footer";
 import { GridBackground } from "./components/grid-background";
 
 const vercelOrigin =
@@ -11,15 +12,21 @@ const appOrigin =
   process.env.NEXT_PUBLIC_APP_URL ||
   (vercelOrigin ? `https://${vercelOrigin}` : "http://localhost:3000");
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
+const openRunde = localFont({
+  src: [
+    {
+      path: "./fonts/OpenRunde-Medium.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "./fonts/OpenRunde-Semibold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+  ],
+  variable: "--font-open-runde",
   display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -54,15 +61,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${spaceGrotesk.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${openRunde.variable} antialiased`}>
         <Providers>
           <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
             <GridBackground />
             <div className="relative z-10">
               <AppHeader />
               {children}
+              <AppFooter />
             </div>
           </div>
         </Providers>

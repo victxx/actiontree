@@ -41,6 +41,7 @@ type ResolverStatus = "idle" | "loading" | "success" | "error";
 type ActiontreeShellProps = {
   initialName?: string;
   autoResolve?: boolean;
+  showDemoShortcut?: boolean;
 };
 
 function ActionCard({
@@ -202,6 +203,7 @@ function getInitialActionAmounts(manifest: ActiontreeManifest) {
 export function ActiontreeShell({
   initialName = DEMO_PROFILE.name,
   autoResolve = false,
+  showDemoShortcut = false,
 }: ActiontreeShellProps) {
   const client = useAppClient();
   const connected = useConnectedWallet(client);
@@ -407,7 +409,8 @@ export function ActiontreeShell({
     .map((part) => part[0]?.toUpperCase())
     .join("");
 
-  const hasResolvedProfile = profile.source === "ens" || !autoResolve;
+  const hasResolvedProfile =
+    profile.source === "ens" || (!autoResolve && initialName !== "");
 
   return (
     <motion.main className="actiontree-main" layout>
@@ -479,6 +482,21 @@ export function ActiontreeShell({
               </motion.p>
             )}
           </AnimatePresence>
+          {!hasResolvedProfile && showDemoShortcut && (
+            <button
+              className="demo-shortcut"
+              type="button"
+              onClick={() => {
+                setQuery("victorxva.eth");
+                void resolveName("victorxva.eth");
+              }}
+              disabled={resolverStatus === "loading"}
+            >
+              <span>Try the live demo</span>
+              <strong>victorxva.eth</strong>
+              <span aria-hidden="true">↗</span>
+            </button>
+          )}
         </motion.form>
       </motion.section>
 
