@@ -24,10 +24,6 @@ export function AppHeader() {
           priority
         />
       </Link>
-      <div className="header-protocol">
-        <span>PROTOCOL</span>
-        <strong>0.1</strong>
-      </div>
       <div className="flex items-center gap-3">
         <ClusterSelect />
         <WalletButton />

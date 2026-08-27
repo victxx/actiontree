@@ -441,9 +441,6 @@ export function ActiontreeShell({
               exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
               transition={introMotion}
             >
-              <div className="eyebrow">
-                <span className="live-dot" /> ENS identity, Solana execution
-              </div>
               <h1>
                 Find the name.
                 <br />

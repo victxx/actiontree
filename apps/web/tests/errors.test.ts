@@ -21,6 +21,19 @@ describe("transaction errors", () => {
     );
   });
 
+  it("explains a blocked websocket confirmation in plain language", () => {
+    expect(
+      parseTransactionError(
+        new Error(
+          "Solana error #8190004; Decode this error by running `npx @solana/errors decode -- 8190004 'X19jb2RlPTgxOTAwMDQmZXJyb3JFdmVudD0lNUJvYmplY3QlMjBFdmVudCU1RA=='`"
+        ),
+        "mainnet"
+      )
+    ).toBe(
+      "The transaction could not be confirmed because Solana's live connection was blocked. Refresh and check the explorer before sending again."
+    );
+  });
+
   it("explains a custom program insufficient-funds error in plain language", () => {
     expect(
       parseTransactionError(

@@ -1,9 +1,10 @@
-import { createClient, MicroLamports } from "@solana/kit";
+import { createClient, extendClient, MicroLamports } from "@solana/kit";
 import { walletSigner } from "@solana/kit-plugin-wallet";
 import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
 import { tokenProgram } from "@solana-program/token";
 import { memoProgram } from "@solana-program/memo";
 import { systemProgram } from "@solana-program/system";
+import { createHttpPollingSubscriptions } from "./http-subscriptions";
 
 export type ClusterMoniker = "devnet" | "testnet" | "mainnet" | "localnet";
 
@@ -59,7 +60,7 @@ export function createAppClient(
   cluster: ClusterMoniker,
   urls?: RpcUrlOverrides
 ) {
-  return createClient()
+  const client = createClient()
     .use(walletSigner({ chain: WALLET_CHAINS[cluster] }))
     .use(
       solanaRpc({
@@ -73,7 +74,18 @@ export function createAppClient(
     .use(rpcAirdrop())
     .use(systemProgram())
     .use(tokenProgram())
-    .use(memoProgram());
+    .use(memoProgram())
+    .use((current) =>
+      cluster === "localnet"
+        ? current
+        : extendClient(current, {
+            rpcSubscriptions: {
+              ...current.rpcSubscriptions,
+              ...createHttpPollingSubscriptions(current.rpc),
+            },
+          })
+    );
+  return client;
 }
 
 export type AppClient = ReturnType<typeof createAppClient>;
