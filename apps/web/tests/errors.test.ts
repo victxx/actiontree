@@ -20,4 +20,17 @@ describe("transaction errors", () => {
       "The Solana RPC rejected the request. Actiontree now routes mainnet payments through its server; refresh the page and try again."
     );
   });
+
+  it("explains a custom program insufficient-funds error in plain language", () => {
+    expect(
+      parseTransactionError(
+        new Error(
+          "Solana error #4615026; Decode this error by running `npx @solana/errors decode -- 4615026 'X19jb2RlPTQ2MTUwMjYmY29kZT0xJmluZGV4PTI='`"
+        ),
+        "mainnet"
+      )
+    ).toBe(
+      "This wallet does not have enough SOL or tokens on mainnet for this action. Lower the amount, add funds, or switch networks."
+    );
+  });
 });

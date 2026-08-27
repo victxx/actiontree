@@ -15,6 +15,11 @@ const appOrigin =
 const openRunde = localFont({
   src: [
     {
+      path: "./fonts/OpenRunde-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
       path: "./fonts/OpenRunde-Medium.woff2",
       weight: "500",
       style: "normal",
@@ -22,6 +27,11 @@ const openRunde = localFont({
     {
       path: "./fonts/OpenRunde-Semibold.woff2",
       weight: "600",
+      style: "normal",
+    },
+    {
+      path: "./fonts/OpenRunde-Bold.woff2",
+      weight: "700",
       style: "normal",
     },
   ],
@@ -60,8 +70,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${openRunde.variable} antialiased`}>
+    <html lang="en" className={openRunde.variable} suppressHydrationWarning>
+      <body className={`${openRunde.className} antialiased`}>
         <Providers>
           <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
             <GridBackground />
