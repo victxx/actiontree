@@ -100,11 +100,8 @@ test("copies a portable Blink URL", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Book 30 minutes" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
-  expect(writeText.mock.calls[0]?.[0]).toMatch(
-    /^https:\/\/dial\.to\/\?action=solana-action%3Ahttps?%3A/
-  );
-  expect(writeText.mock.calls[0]?.[0]).toContain(
-    "%2Fapi%2Factions%2Ftip%2Fnightshift.eth"
+  expect(writeText.mock.calls[0]?.[0]).toBe(
+    "http://localhost:3000/p/nightshift.eth"
   );
   expect(screen.getByText("Blink link copied ✓")).toBeTruthy();
 });

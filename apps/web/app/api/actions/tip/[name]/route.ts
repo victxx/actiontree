@@ -5,7 +5,11 @@ import {
   type ActionPostResponse,
 } from "@solana/actions";
 import { resolveEnsProfile } from "@actiontree/ens";
-import { buildSolTransferAction, parseSolAmount } from "@actiontree/solana";
+import {
+  buildSolTransferAction,
+  parseSolAmount,
+  SOLANA_RPC_URLS,
+} from "@actiontree/solana";
 
 export const runtime = "nodejs";
 
@@ -88,9 +92,7 @@ export async function POST(request: Request, context: Context) {
       account,
       destination: profile.solanaAddress,
       amount,
-      rpcUrl:
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-        "https://api.devnet.solana.com",
+      rpcUrl: process.env.NEXT_PUBLIC_SOLANA_RPC_URL || SOLANA_RPC_URLS.mainnet,
     });
     const response: ActionPostResponse = {
       type: "transaction",

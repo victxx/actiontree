@@ -1,4 +1,4 @@
-import { createPublicClient, http } from "viem";
+import { createPublicClient, getAddress, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 import { getCoderByCoinName } from "@ensdomains/address-encoder";
@@ -27,6 +27,27 @@ export type EnsProfileResolverOptions = {
   rpcUrl?: string;
 };
 
+function createEnsClient(options: EnsProfileResolverOptions) {
+  return createPublicClient({
+    chain: mainnet,
+    transport: http(options.rpcUrl),
+  });
+}
+
+export function isEthereumAddress(value: string) {
+  return isAddress(value.trim());
+}
+
+export async function reverseResolveEnsAddress(
+  rawAddress: string,
+  options: EnsProfileResolverOptions = {},
+) {
+  if (!isAddress(rawAddress.trim())) return null;
+  return createEnsClient(options).getEnsName({
+    address: getAddress(rawAddress.trim()),
+  });
+}
+
 function socialLink(label: string, handle: string | null, base: string) {
   if (!handle) return null;
   const clean = handle.replace(/^@/, "");
@@ -38,14 +59,13 @@ export async function resolveEnsProfile(
   options: EnsProfileResolverOptions = {},
 ): Promise<ActiontreeProfile> {
   const name = normalize(rawName.trim());
-  const client = createPublicClient({
-    chain: mainnet,
-    transport: http(options.rpcUrl),
-  });
+  const client = createEnsClient(options);
 
   const [texts, solanaAddressBytes, resolvedAvatar] = await Promise.all([
     Promise.all(
-      TEXT_KEYS.map(async (key) => [key, await client.getEnsText({ name, key })] as const),
+      TEXT_KEYS.map(
+        async (key) => [key, await client.getEnsText({ name, key })] as const,
+      ),
     ),
     client.getEnsAddress({ name, coinType: SOLANA_COIN_TYPE }),
     client.getEnsAvatar({ name }),

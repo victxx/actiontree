@@ -19,7 +19,9 @@ type ClusterContextValue = {
 
 const ClusterContext = createContext<ClusterContextValue | null>(null);
 
-const STORAGE_KEY = "solana-cluster";
+// The v2 key intentionally migrates early users away from the old devnet
+// default. Actiontree now defaults to mainnet for real ENS payments.
+const STORAGE_KEY = "solana-cluster-v2";
 const CLUSTER_EVENT = "cluster-change";
 
 function readStoredCluster(): ClusterMoniker {
@@ -31,11 +33,11 @@ function readStoredCluster(): ClusterMoniker {
   } catch {
     // localStorage unavailable (e.g. Safari private mode)
   }
-  return "devnet";
+  return "mainnet";
 }
 
 function getServerCluster(): ClusterMoniker {
-  return "devnet";
+  return "mainnet";
 }
 
 function subscribeCluster(callback: () => void) {

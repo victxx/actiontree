@@ -18,6 +18,7 @@ import {
 import { USDC_MINTS } from "@actiontree/solana";
 import { address, sol, solToLamports, type Lamports } from "@solana/kit";
 import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { useAppClient } from "../lib/client-provider";
 import { useSend } from "../lib/hooks/use-send";
@@ -47,21 +48,32 @@ function ActionCard({
   index,
   isRunning,
   isCopied,
+  amount,
+  onAmountChange,
   onRun,
 }: {
   action: ActiontreeAction;
   index: number;
   isRunning: boolean;
   isCopied: boolean;
+  amount?: string;
+  onAmountChange: (value: string) => void;
   onRun: (action: ActiontreeAction) => void;
 }) {
+  const currency =
+    action.kind === "sol-transfer"
+      ? "SOL"
+      : action.kind === "usdc-transfer"
+        ? "USDC"
+        : null;
+
   return (
-    <button
-      type="button"
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 360, damping: 30 }}
       className={`action-card group ${action.featured ? "action-card-featured" : ""}`}
-      aria-label={action.label}
-      disabled={isRunning}
-      onClick={() => onRun(action)}
     >
       <span className="action-index">0{index + 1}</span>
       <span className="action-glyph" aria-hidden="true">
@@ -73,14 +85,50 @@ function ActionCard({
             ? "Blink link copied ✓"
             : isRunning
               ? "Waiting for wallet…"
-              : action.label}
+              : currency
+                ? `Send ${currency}`
+                : action.label}
         </strong>
         <small>{action.description}</small>
       </span>
-      <span className="action-arrow" aria-hidden="true">
-        ↗
-      </span>
-    </button>
+      {currency ? (
+        <div className="amount-action">
+          <label className="amount-field">
+            <span className="sr-only">{currency} amount</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step={currency === "SOL" ? "0.001" : "0.1"}
+              value={amount ?? ""}
+              onChange={(event) => onAmountChange(event.target.value)}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={`${currency} amount`}
+            />
+            <span>{currency}</span>
+          </label>
+          <button
+            type="button"
+            className="action-trigger"
+            aria-label={`Send ${amount || "0"} ${currency}`}
+            disabled={isRunning}
+            onClick={() => onRun(action)}
+          >
+            Send <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="action-trigger action-trigger-icon"
+          aria-label={action.label}
+          disabled={isRunning}
+          onClick={() => onRun(action)}
+        >
+          <span aria-hidden="true">↗</span>
+        </button>
+      )}
+    </motion.div>
   );
 }
 
@@ -137,6 +185,20 @@ async function fetchManifest(
   return parseManifest(JSON.parse(body));
 }
 
+function getInitialActionAmounts(manifest: ActiontreeManifest) {
+  return Object.fromEntries(
+    manifest.actions
+      .filter(
+        (action) =>
+          action.kind === "sol-transfer" || action.kind === "usdc-transfer"
+      )
+      .map((action) => [
+        action.id,
+        String(action.amount ?? (action.kind === "sol-transfer" ? 0.05 : 5)),
+      ])
+  );
+}
+
 export function ActiontreeShell({
   initialName = DEMO_PROFILE.name,
   autoResolve = false,
@@ -154,19 +216,23 @@ export function ActiontreeShell({
   const [resolverError, setResolverError] = useState<string | null>(null);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const [copiedActionId, setCopiedActionId] = useState<string | null>(null);
+  const [actionAmounts, setActionAmounts] = useState<Record<string, string>>(
+    () => getInitialActionAmounts(DEMO_MANIFEST)
+  );
 
-  const resolveName = useCallback(async (rawName: string) => {
-    const name = rawName.trim().toLowerCase();
-    if (!isEnsName(name)) {
+  const resolveName = useCallback(async (rawInput: string) => {
+    const input = rawInput.trim();
+    const isAddressInput = /^0x[a-fA-F0-9]{40}$/.test(input);
+    if (!isEnsName(input) && !isAddressInput) {
       setResolverStatus("error");
-      setResolverError("Enter a valid .eth name.");
+      setResolverError("Enter a valid .eth name or Ethereum address.");
       return;
     }
 
     setResolverStatus("loading");
     setResolverError(null);
     try {
-      const response = await fetch(`/api/profile/${encodeURIComponent(name)}`);
+      const response = await fetch(`/api/profile/${encodeURIComponent(input)}`);
       const payload = (await response.json()) as
         ActiontreeProfile | { message?: string };
       if (!response.ok) {
@@ -179,15 +245,18 @@ export function ActiontreeShell({
 
       const nextProfile = payload as ActiontreeProfile;
       setProfile(nextProfile);
+      setQuery(nextProfile.name);
       try {
-        setManifest(await fetchManifest(nextProfile));
+        const nextManifest = await fetchManifest(nextProfile);
+        setManifest(nextManifest);
+        setActionAmounts(getInitialActionAmounts(nextManifest));
       } catch (error) {
-        setManifest(
-          createDefaultManifest(
-            nextProfile.name,
-            Boolean(nextProfile.solanaAddress)
-          )
+        const fallbackManifest = createDefaultManifest(
+          nextProfile.name,
+          Boolean(nextProfile.solanaAddress)
         );
+        setManifest(fallbackManifest);
+        setActionAmounts(getInitialActionAmounts(fallbackManifest));
         toast.warning("Custom actions were unavailable", {
           description:
             error instanceof Error
@@ -256,16 +325,13 @@ export function ActiontreeShell({
       }
 
       if (action.kind === "blink") {
-        const actionUrl =
-          action.href && isSafeActionUrl(action.href)
-            ? action.href
-            : `${window.location.origin}/api/actions/tip/${encodeURIComponent(profile.name)}`;
-        const blinkUrl = `https://dial.to/?action=${encodeURIComponent(`solana-action:${actionUrl}`)}`;
+        const blinkUrl = `${window.location.origin}/p/${encodeURIComponent(profile.name)}`;
         try {
           await copyText(blinkUrl);
           setCopiedActionId(action.id);
           toast.success("Blink link copied", {
-            description: "Paste it anywhere to open the payment action.",
+            description:
+              "Paste it anywhere. Blink clients detect its payment action automatically.",
           });
         } catch {
           window.prompt("Copy your Blink link:", blinkUrl);
@@ -277,7 +343,13 @@ export function ActiontreeShell({
       if (!payment) return;
 
       if (action.kind === "sol-transfer") {
-        const amount = action.amount ?? 0.05;
+        const amount = Number(
+          actionAmounts[action.id] ?? action.amount ?? 0.05
+        );
+        if (!Number.isFinite(amount) || amount <= 0 || amount > 100) {
+          toast.error("Choose a SOL amount between 0 and 100.");
+          return;
+        }
         let transferAmount: Lamports;
         try {
           transferAmount = solToLamports(sol(String(amount)));
@@ -304,7 +376,11 @@ export function ActiontreeShell({
           toast.error("USDC actions are available on devnet or mainnet.");
           return;
         }
-        const amount = action.amount ?? 5;
+        const amount = Number(actionAmounts[action.id] ?? action.amount ?? 5);
+        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) {
+          toast.error("Choose a valid USDC amount.");
+          return;
+        }
         await run(
           () =>
             client.token.instructions
@@ -331,37 +407,59 @@ export function ActiontreeShell({
     .map((part) => part[0]?.toUpperCase())
     .join("");
 
-  return (
-    <main className="actiontree-main">
-      <section className="intro-panel">
-        <div className="eyebrow">
-          <span className="live-dot" /> ETH Belgrade × Solana Summit
-        </div>
-        <h1>
-          Your ENS
-          <br />
-          is an <em>app.</em>
-        </h1>
-        <p className="intro-copy">
-          Resolve a name. Discover its Solana actions. Pay, book, mint or join
-          without leaving the profile.
-        </p>
+  const hasResolvedProfile = profile.source === "ens" || !autoResolve;
 
-        <form
+  return (
+    <motion.main className="actiontree-main" layout>
+      <motion.section
+        layout
+        className={`resolver-shell ${hasResolvedProfile ? "resolver-shell-compact" : ""}`}
+        transition={{ type: "spring", stiffness: 260, damping: 28 }}
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {!hasResolvedProfile && (
+            <motion.div
+              key="search-intro"
+              className="search-intro"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+              transition={{ duration: 0.28 }}
+            >
+              <div className="eyebrow">
+                <span className="live-dot" /> ENS identity, Solana execution
+              </div>
+              <h1>
+                Find the name.
+                <br />
+                <em>Run the action.</em>
+              </h1>
+              <p className="intro-copy">
+                Search an ENS name or paste an Ethereum address. Actiontree
+                resolves the identity and turns it into a live payment profile.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.form
+          layout
           className="resolver-form"
           onSubmit={(event) => {
             event.preventDefault();
             void resolveName(query);
           }}
         >
-          <label htmlFor="ens-name">ENS identity</label>
+          <label htmlFor="ens-name">
+            {hasResolvedProfile ? "Resolve another identity" : "ENS lookup"}
+          </label>
           <div className="resolver-control">
             <span aria-hidden="true">⌁</span>
             <input
               id="ens-name"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="name.eth"
+              placeholder="name.eth or 0x address"
               autoComplete="off"
               spellCheck={false}
             />
@@ -369,108 +467,121 @@ export function ActiontreeShell({
               {lookupLabel}
             </button>
           </div>
-          {resolverError && <p className="resolver-error">{resolverError}</p>}
-        </form>
+          <AnimatePresence initial={false}>
+            {resolverError && (
+              <motion.p
+                className="resolver-error"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                {resolverError}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.form>
+      </motion.section>
 
-        <div className="protocol-note">
-          <span>01</span>
-          <p>
-            Profile and ownership resolve from Ethereum. Payments and actions
-            execute on Solana.
-          </p>
-        </div>
-      </section>
-
-      <section
-        className="profile-stage"
-        aria-label="Resolved Actiontree profile"
-      >
-        <div className="stage-coordinate stage-coordinate-top">50.4501° N</div>
-        <article
-          className="profile-card"
-          aria-busy={resolverStatus === "loading"}
-        >
-          <div className="profile-signal">
-            <span>
-              {profile.source === "ens" ? "LIVE PROFILE" : "DEMO PROFILE"}
-            </span>
-            <span>ENS → SOL</span>
-          </div>
-
-          <header className="profile-header">
-            <div className="avatar-shell" aria-hidden="true">
-              <div className="avatar-orbit" />
-              {profile.avatar?.startsWith("https://") ? (
-                // eslint-disable-next-line @next/next/no-img-element -- arbitrary ENS avatar hosts cannot be preconfigured
-                <img src={profile.avatar} alt="" />
-              ) : (
-                <span>{initials || "AT"}</span>
-              )}
-            </div>
-            <div>
-              <div className="verified-name">
-                <h2>{profile.name}</h2>
-                <span title="Resolved from ENS">✓</span>
+      <AnimatePresence mode="wait">
+        {hasResolvedProfile && (
+          <motion.section
+            key={profile.name}
+            className="profile-stage"
+            aria-label="Resolved Actiontree profile"
+            initial={{ opacity: 0, y: 42, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 260, damping: 26 }}
+          >
+            <article
+              className="profile-card"
+              aria-busy={resolverStatus === "loading"}
+            >
+              <div className="profile-signal">
+                <span>LIVE ENS PROFILE</span>
+                <span>{cluster.toUpperCase()} · ENS → SOL</span>
               </div>
-              <p>{profile.description}</p>
-            </div>
-          </header>
 
-          <div className="address-rail">
-            <span className="chain-chip">SOL</span>
-            <code>
-              {profile.solanaAddress
-                ? shortAddress(profile.solanaAddress, 7)
-                : "No Solana record published"}
-            </code>
-            <span className="address-status">
-              {profile.solanaAddress ? "record 501" : "setup needed"}
-            </span>
-          </div>
+              <header className="profile-header">
+                <div className="avatar-shell" aria-hidden="true">
+                  <div className="avatar-orbit" />
+                  {profile.avatar?.startsWith("https://") ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- arbitrary ENS avatar hosts cannot be preconfigured
+                    <img src={profile.avatar} alt="" />
+                  ) : (
+                    <span>{initials || "AT"}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="verified-name">
+                    <h2>{profile.name}</h2>
+                    <span title="Resolved from ENS">✓</span>
+                  </div>
+                  <p>{profile.description}</p>
+                </div>
+              </header>
 
-          <div className="actions-heading">
-            <span>{manifest.title ?? "Executable actions"}</span>
-            <span>{manifest.actions.length} available</span>
-          </div>
+              <div className="address-rail">
+                <span className="chain-chip">SOL</span>
+                <code>
+                  {profile.solanaAddress
+                    ? shortAddress(profile.solanaAddress, 7)
+                    : "No Solana record published"}
+                </code>
+                <span className="address-status">
+                  {profile.solanaAddress ? "ENS record 501" : "setup needed"}
+                </span>
+              </div>
 
-          <div className="action-list">
-            {manifest.actions.map((action, index) => (
-              <ActionCard
-                key={action.id}
-                action={action}
-                index={index}
-                isRunning={isSending && runningActionId === action.id}
-                isCopied={copiedActionId === action.id}
-                onRun={(selected) => void runAction(selected)}
-              />
-            ))}
-          </div>
+              <div className="actions-heading">
+                <span>{manifest.title ?? "Executable actions"}</span>
+                <span>{manifest.actions.length} available</span>
+              </div>
 
-          <footer className="profile-footer">
-            <div className="social-links">
-              {profile.socials.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {social.label}
-                </a>
-              ))}
-              {profile.website && isSafeActionUrl(profile.website) && (
-                <a href={profile.website} target="_blank" rel="noreferrer">
-                  Website
-                </a>
-              )}
-            </div>
-            <span>Powered by ENS records + Solana Actions</span>
-          </footer>
-        </article>
-        <div className="stage-coordinate stage-coordinate-bottom">
-          20.4612° E
-        </div>
-      </section>
-    </main>
+              <motion.div className="action-list" layout>
+                {manifest.actions.map((action, index) => (
+                  <ActionCard
+                    key={action.id}
+                    action={action}
+                    index={index}
+                    amount={actionAmounts[action.id]}
+                    isRunning={isSending && runningActionId === action.id}
+                    isCopied={copiedActionId === action.id}
+                    onAmountChange={(value) =>
+                      setActionAmounts((current) => ({
+                        ...current,
+                        [action.id]: value,
+                      }))
+                    }
+                    onRun={(selected) => void runAction(selected)}
+                  />
+                ))}
+              </motion.div>
+
+              <footer className="profile-footer">
+                <div className="social-links">
+                  {profile.socials.map((social) => (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {social.label}
+                    </a>
+                  ))}
+                  {profile.website && isSafeActionUrl(profile.website) && (
+                    <a href={profile.website} target="_blank" rel="noreferrer">
+                      Website
+                    </a>
+                  )}
+                </div>
+                <span>Identity on Ethereum · actions on Solana</span>
+              </footer>
+            </article>
+          </motion.section>
+        )}
+      </AnimatePresence>
+    </motion.main>
   );
 }

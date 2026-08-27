@@ -8,7 +8,7 @@ import { parseTransactionError } from "../errors";
 type TxResult = { context: { signature: string } };
 
 export function useSend() {
-  const { getExplorerUrl } = useCluster();
+  const { cluster, getExplorerUrl } = useCluster();
 
   const { dispatchAsync, isRunning } = useAction(
     async (
@@ -34,7 +34,7 @@ export function useSend() {
         return signature;
       } catch (err) {
         console.error(err);
-        toast.error(parseTransactionError(err));
+        toast.error(parseTransactionError(err, cluster));
         return undefined;
       }
     }

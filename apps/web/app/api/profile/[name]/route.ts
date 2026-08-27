@@ -1,5 +1,9 @@
 import { isEnsName } from "@actiontree/profile";
-import { resolveEnsProfile } from "@actiontree/ens";
+import {
+  isEthereumAddress,
+  resolveEnsProfile,
+  reverseResolveEnsAddress,
+} from "@actiontree/ens";
 
 export const runtime = "nodejs";
 
@@ -9,18 +13,29 @@ type Context = {
 
 export async function GET(_request: Request, context: Context) {
   const { name: encodedName } = await context.params;
-  const name = decodeURIComponent(encodedName).trim().toLowerCase();
+  const input = decodeURIComponent(encodedName).trim();
+  const normalizedInput = input.toLowerCase();
 
-  if (!isEnsName(name)) {
+  if (!isEnsName(normalizedInput) && !isEthereumAddress(input)) {
     return Response.json(
-      { message: "Enter a valid .eth name." },
+      { message: "Enter a valid .eth name or Ethereum address." },
       { status: 400 }
     );
   }
 
   try {
+    const rpcUrl = process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || undefined;
+    const name = isEthereumAddress(input)
+      ? await reverseResolveEnsAddress(input, { rpcUrl })
+      : normalizedInput;
+    if (!name) {
+      return Response.json(
+        { message: "This address has no primary ENS name." },
+        { status: 404 }
+      );
+    }
     const profile = await resolveEnsProfile(name, {
-      rpcUrl: process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || undefined,
+      rpcUrl,
     });
     return Response.json(profile, {
       headers: {

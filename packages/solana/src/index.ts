@@ -37,7 +37,7 @@ export async function buildSolTransferAction({
   account,
   destination,
   amount,
-  rpcUrl = SOLANA_RPC_URLS.devnet,
+  rpcUrl = SOLANA_RPC_URLS.mainnet,
 }: BuildSolTransferActionInput) {
   if (!Number.isFinite(amount) || amount <= 0 || amount > 100) {
     throw new Error("Amount must be between 0 and 100 SOL");

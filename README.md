@@ -55,7 +55,7 @@ pnpm check
 # Recommended for production; the public provider works for a demo.
 NEXT_PUBLIC_ETHEREUM_RPC_URL=
 
-# Optional dedicated devnet HTTP + WebSocket pair.
+# Optional dedicated devnet HTTP + WebSocket pair when testing devnet.
 NEXT_PUBLIC_SOLANA_RPC_URL=
 NEXT_PUBLIC_SOLANA_WS_URL=
 
@@ -66,7 +66,8 @@ NEXT_PUBLIC_DEMO_MANIFEST_URL=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Both Solana RPC values must be set together. The public defaults are deliberately sufficient for local judging.
+Both Solana RPC values must be set together. The public app defaults to
+Solana mainnet; the network picker can still switch to devnet or testnet.
 
 ## The tiny Actiontree protocol
 

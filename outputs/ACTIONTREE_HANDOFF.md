@@ -19,7 +19,7 @@ The monorepo MVP is implemented in this workspace. It joins ENS and Solana in on
 1. Run `pnpm check`.
 2. Deploy `apps/web` from the monorepo and set `NEXT_PUBLIC_APP_URL`.
 3. Set an owned ENS name's Solana record to the demo recipient wallet.
-4. Fund the presenting wallet on Solana devnet and test one tiny payment.
+4. Fund the presenting wallet on Solana mainnet and test one tiny payment.
 5. Use the judging script in `docs/CURSOR_HANDOFF.md`.
 
 ## The difficult parts, intentionally simplified

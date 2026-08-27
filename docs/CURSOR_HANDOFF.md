@@ -50,9 +50,9 @@ The complete MVP path is implemented:
 
 1. Run `pnpm check` and keep it green after every change.
 2. Deploy the web app and set `NEXT_PUBLIC_APP_URL` to its canonical HTTPS origin.
-3. Add dedicated Ethereum mainnet and Solana devnet RPC URLs only if public endpoints are rate-limited.
+3. Add dedicated Ethereum and Solana mainnet RPC URLs only if public endpoints are rate-limited.
 4. Test `/p/victorxva.eth`, `/actions.json`, and `/api/actions/tip/victorxva.eth?amount=0.01` on the deployed domain.
-5. Test one tiny devnet payment with a funded wallet.
+5. Test one tiny mainnet payment with a funded wallet.
 
 ### P1 — only if the core demo is already stable
 
@@ -82,7 +82,7 @@ The product still works without step 2–3: it generates SOL, USDC and Blink act
 1. **Hook:** “Linktree made identity readable. Actiontree makes identity executable.”
 2. Show the fictional `nightshift.eth` profile and the three action types.
 3. Resolve `victorxva.eth` live and point out that the base58 recipient came from ENS `coinType 501`, not a local database.
-4. Connect a devnet wallet and send a tiny SOL transaction.
+4. Connect a mainnet wallet and send a tiny SOL transaction.
 5. Open the Blink to prove the same action travels outside the profile.
 6. End on the architecture: ENS controls identity and routing; Solana provides cheap execution; the wallet keeps final approval.
 
