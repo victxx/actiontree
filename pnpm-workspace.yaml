@@ -1,0 +1,19 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  bufferutil: false
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  utf-8-validate: false
+
+onlyBuiltDependencies:
+  - "esbuild"
+  - "sharp"
+  - "unrs-resolver"
+
+ignoredBuiltDependencies:
+  - "bufferutil"
+  - "utf-8-validate"

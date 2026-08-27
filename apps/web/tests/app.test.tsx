@@ -1,0 +1,84 @@
+import { address, createSolanaRpc } from "@solana/kit";
+import { ClientProvider } from "@solana/react";
+import { Surfnet } from "@solana/surfpool";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useMemo } from "react";
+import { Toaster } from "sonner";
+import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { DEMO_PROFILE } from "@actiontree/profile";
+import { ActiontreeShell } from "../app/components/actiontree-shell";
+import { ClusterProvider } from "../app/components/cluster-context";
+import { WalletButton } from "../app/components/wallet-button";
+import { ellipsify } from "../app/lib/explorer";
+import { createAppClient } from "../app/lib/solana-client";
+import { mockWalletAddress, registerMockWallet } from "./mock-wallet";
+
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+let surfnet: Surfnet;
+let rpc: ReturnType<typeof createSolanaRpc>;
+
+beforeAll(() => {
+  surfnet = Surfnet.start();
+  rpc = createSolanaRpc(surfnet.rpcUrl);
+  surfnet.fundSol(mockWalletAddress, 5 * LAMPORTS_PER_SOL);
+  registerMockWallet();
+}, 60_000);
+
+afterAll(() => {
+  surfnet?.stop();
+});
+
+afterEach(cleanup);
+
+function TestApp() {
+  const client = useMemo(
+    () =>
+      createAppClient("localnet", {
+        rpcUrl: surfnet.rpcUrl,
+        rpcSubscriptionsUrl: surfnet.wsUrl,
+      }),
+    []
+  );
+  return (
+    <ClusterProvider>
+      <ClientProvider client={client}>
+        <WalletButton />
+        <ActiontreeShell />
+        <Toaster />
+      </ClientProvider>
+    </ClusterProvider>
+  );
+}
+
+async function connectWallet() {
+  fireEvent.click(screen.getByRole("button", { name: "Connect Wallet" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Mock Wallet" }));
+  return await screen.findByRole("button", {
+    name: ellipsify(mockWalletAddress),
+  });
+}
+
+test("connects a Wallet Standard wallet", async () => {
+  render(<TestApp />);
+  const walletButton = await connectWallet();
+  expect(walletButton).toBeTruthy();
+});
+
+test("executes the profile SOL action against the resolved destination", async () => {
+  const destination = address(DEMO_PROFILE.solanaAddress!);
+  surfnet.fundSol(mockWalletAddress, 5 * LAMPORTS_PER_SOL);
+  render(<TestApp />);
+  await connectWallet();
+
+  const before = await rpc.getBalance(destination).send();
+  fireEvent.click(screen.getByRole("button", { name: "Send 0.05 SOL" }));
+
+  await screen.findByText(
+    "Sent 0.05 SOL to nightshift.eth",
+    {},
+    { timeout: 15_000 }
+  );
+  const after = await rpc.getBalance(destination).send();
+  expect(after.value - before.value).toBe(50_000_000n);
+});
