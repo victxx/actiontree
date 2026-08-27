@@ -46,11 +46,13 @@ function ActionCard({
   action,
   index,
   isRunning,
+  isCopied,
   onRun,
 }: {
   action: ActiontreeAction;
   index: number;
   isRunning: boolean;
+  isCopied: boolean;
   onRun: (action: ActiontreeAction) => void;
 }) {
   return (
@@ -66,7 +68,13 @@ function ActionCard({
         {actionGlyphs[action.kind]}
       </span>
       <span className="action-copy">
-        <strong>{isRunning ? "Waiting for wallet…" : action.label}</strong>
+        <strong>
+          {isCopied
+            ? "Blink link copied ✓"
+            : isRunning
+              ? "Waiting for wallet…"
+              : action.label}
+        </strong>
         <small>{action.description}</small>
       </span>
       <span className="action-arrow" aria-hidden="true">
@@ -74,6 +82,28 @@ function ActionCard({
       </span>
     </button>
   );
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Fall through for browsers that expose Clipboard API but block writes.
+    }
+  }
+
+  const input = document.createElement("textarea");
+  input.value = value;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  if (!copied) throw new Error("Clipboard access was blocked.");
 }
 
 async function fetchManifest(
@@ -123,6 +153,7 @@ export function ActiontreeShell({
   const [resolverStatus, setResolverStatus] = useState<ResolverStatus>("idle");
   const [resolverError, setResolverError] = useState<string | null>(null);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
+  const [copiedActionId, setCopiedActionId] = useState<string | null>(null);
 
   const resolveName = useCallback(async (rawName: string) => {
     const name = rawName.trim().toLowerCase();
@@ -230,7 +261,15 @@ export function ActiontreeShell({
             ? action.href
             : `${window.location.origin}/api/actions/tip/${encodeURIComponent(profile.name)}`;
         const blinkUrl = `https://dial.to/?action=${encodeURIComponent(`solana-action:${actionUrl}`)}`;
-        window.open(blinkUrl, "_blank", "noopener,noreferrer");
+        try {
+          await copyText(blinkUrl);
+          setCopiedActionId(action.id);
+          toast.success("Blink link copied", {
+            description: "Paste it anywhere to open the payment action.",
+          });
+        } catch {
+          window.prompt("Copy your Blink link:", blinkUrl);
+        }
         return;
       }
 
@@ -401,6 +440,7 @@ export function ActiontreeShell({
                 action={action}
                 index={index}
                 isRunning={isSending && runningActionId === action.id}
+                isCopied={copiedActionId === action.id}
                 onRun={(selected) => void runAction(selected)}
               />
             ))}

@@ -6,12 +6,12 @@ Built for the ETH Belgrade × Solana Summit Serbia hackathon.
 
 ## The demo
 
-1. Open Actiontree and resolve an ENS name such as `gregskril.eth`.
+1. Open Actiontree and resolve an ENS name such as `victorxva.eth`.
 2. The server reads the public ENS profile plus its Solana address record (`coinType 501`).
 3. The page becomes an action menu: send SOL, send USDC, or open a payment Blink.
 4. The connected Solana wallet previews, validates, and signs the transaction.
 
-The landing page uses `nightshift.eth` as an offline-safe fictional demo. `gregskril.eth` is useful for demonstrating live ENS multicoin resolution because it currently publishes a Solana record.
+The landing page resolves `victorxva.eth` as the live demo because it publishes a Solana coin type 501 record. `nightshift.eth` remains the offline-safe fixture used by the test suite.
 
 ## Monorepo
 

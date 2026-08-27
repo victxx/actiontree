@@ -97,8 +97,8 @@ export function createDefaultManifest(
       {
         id: "share-blink",
         kind: "blink",
-        label: "Open payment Blink",
-        description: "Share this profile as a transaction-ready Solana link.",
+        label: "Copy payment Blink",
+        description: "Copy this profile as a transaction-ready Solana link.",
       },
     ],
   };

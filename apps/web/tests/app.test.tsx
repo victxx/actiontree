@@ -1,10 +1,16 @@
 import { address, createSolanaRpc } from "@solana/kit";
 import { ClientProvider } from "@solana/react";
 import { Surfnet } from "@solana/surfpool";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { useMemo } from "react";
 import { Toaster } from "sonner";
-import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, test, vi } from "vitest";
 import { DEMO_PROFILE } from "@actiontree/profile";
 import { ActiontreeShell } from "../app/components/actiontree-shell";
 import { ClusterProvider } from "../app/components/cluster-context";
@@ -81,4 +87,24 @@ test("executes the profile SOL action against the resolved destination", async (
   );
   const after = await rpc.getBalance(destination).send();
   expect(after.value - before.value).toBe(50_000_000n);
+});
+
+test("copies a portable Blink URL", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  render(<TestApp />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Book 30 minutes" }));
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+  expect(writeText.mock.calls[0]?.[0]).toMatch(
+    /^https:\/\/dial\.to\/\?action=solana-action%3Ahttps?%3A/
+  );
+  expect(writeText.mock.calls[0]?.[0]).toContain(
+    "%2Fapi%2Factions%2Ftip%2Fnightshift.eth"
+  );
+  expect(screen.getByText("Blink link copied ✓")).toBeTruthy();
 });
