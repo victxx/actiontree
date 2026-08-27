@@ -3,35 +3,54 @@ export function parseTransactionError(err: unknown, cluster?: string): string {
     return "Transaction was rejected by the wallet.";
   }
 
-  const message = getDeepestMessage(err);
+  const messages = collectErrorMessages(err);
+  const combined = messages.join("\n");
+  const network = cluster ?? "the selected network";
+
   if (
-    message.includes("7050003") ||
-    message.includes(
+    combined.includes("7050003") ||
+    combined.includes(
       "Attempt to debit an account but found no record of a prior credit"
     )
   ) {
-    return `This wallet has no SOL on ${cluster ?? "the selected network"}. Add SOL for the transfer and network fee, or switch networks.`;
+    return `This wallet has no SOL on ${network}. Add SOL for the transfer and network fee, or switch networks.`;
   }
   if (
-    message.includes("8100002") ||
-    message.includes("statusCode=403") ||
-    message.includes("statusCode%3D403")
+    combined.includes("8100002") ||
+    combined.includes("statusCode=403") ||
+    combined.includes("statusCode%3D403")
   ) {
     return "The Solana RPC rejected the request. Actiontree now routes mainnet payments through its server; refresh the page and try again.";
   }
+  if (isInsufficientFundsError(combined)) {
+    return `This wallet does not have enough SOL or tokens on ${network} for this action. Lower the amount, add funds, or switch networks.`;
+  }
+
+  const message = messages[messages.length - 1] ?? String(err);
   return message.length > 200 ? `${message.slice(0, 200)}...` : message;
 }
 
-function getDeepestMessage(err: unknown): string {
-  let deepest = err instanceof Error ? err.message : String(err);
+function isInsufficientFundsError(message: string) {
+  return (
+    message.includes("4615026") ||
+    message.includes("custom program error: 0x1") ||
+    message.includes("custom program error: #1") ||
+    /insufficient funds/i.test(message)
+  );
+}
+
+function collectErrorMessages(err: unknown): string[] {
+  const messages: string[] = [];
   let current: unknown = err;
 
-  while (current instanceof Error && current.cause) {
+  while (current instanceof Error) {
+    messages.push(current.message);
     current = current.cause;
-    if (current instanceof Error) {
-      deepest = current.message;
-    }
   }
 
-  return deepest;
+  if (messages.length === 0) {
+    messages.push(String(err));
+  }
+
+  return messages;
 }

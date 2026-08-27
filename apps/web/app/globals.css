@@ -25,7 +25,7 @@
   --radius: 0.15rem;
   --secondary: #18201b;
   --secondary-foreground: #f0f4e8;
-  --font-sans: var(--font-open-runde), system-ui, sans-serif;
+  --font-sans: var(--font-open-runde), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -55,8 +55,8 @@
   --color-ring: var(--ring);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  --font-sans: var(--font-open-runde), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
@@ -68,8 +68,8 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-open-runde), ui-sans-serif, system-ui, sans-serif;
   }
 
   button,
@@ -725,10 +725,10 @@ body {
 }
 
 .search-intro h1 {
-  font-size: clamp(3.5rem, 9vw, 7rem);
-  font-weight: 570;
-  line-height: 0.9;
-  letter-spacing: -0.07em;
+  font-size: clamp(2.15rem, 5.6vw, 4.05rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.055em;
 }
 
 .search-intro h1 em {
@@ -926,7 +926,7 @@ body {
   }
 
   .search-intro h1 {
-    font-size: clamp(3rem, 16vw, 5rem);
+    font-size: clamp(2rem, 9.2vw, 3.1rem);
   }
 
   .resolver-control {

@@ -31,6 +31,18 @@ const actionGlyphs: Record<ActiontreeAction["kind"], string> = {
   link: "↘",
 };
 
+const layoutMotion = {
+  type: "spring" as const,
+  stiffness: 150,
+  damping: 26,
+  mass: 0.95,
+};
+
+const introMotion = {
+  duration: 0.55,
+  ease: [0.22, 1, 0.36, 1] as const,
+};
+
 const configuredDemoProfile: ActiontreeProfile = {
   ...DEMO_PROFILE,
   manifestUrl: process.env.NEXT_PUBLIC_DEMO_MANIFEST_URL || null,
@@ -73,7 +85,7 @@ function ActionCard({
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 360, damping: 30 }}
+      transition={{ type: "spring", stiffness: 210, damping: 28, mass: 0.9 }}
       className={`action-card group ${action.featured ? "action-card-featured" : ""}`}
     >
       <span className="action-index">0{index + 1}</span>
@@ -417,7 +429,7 @@ export function ActiontreeShell({
       <motion.section
         layout
         className={`resolver-shell ${hasResolvedProfile ? "resolver-shell-compact" : ""}`}
-        transition={{ type: "spring", stiffness: 260, damping: 28 }}
+        transition={layoutMotion}
       >
         <AnimatePresence initial={false} mode="popLayout">
           {!hasResolvedProfile && (
@@ -427,7 +439,7 @@ export function ActiontreeShell({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
-              transition={{ duration: 0.28 }}
+              transition={introMotion}
             >
               <div className="eyebrow">
                 <span className="live-dot" /> ENS identity, Solana execution
@@ -509,7 +521,7 @@ export function ActiontreeShell({
             initial={{ opacity: 0, y: 42, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            transition={layoutMotion}
           >
             <article
               className="profile-card"
