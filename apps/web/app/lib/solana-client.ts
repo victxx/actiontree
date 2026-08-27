@@ -1,6 +1,10 @@
 import { createClient, extendClient, MicroLamports } from "@solana/kit";
 import { walletSigner } from "@solana/kit-plugin-wallet";
-import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import {
+  solanaRpc,
+  rpcAirdrop,
+  rpcTransactionPlanExecutor,
+} from "@solana/kit-plugin-rpc";
 import { tokenProgram } from "@solana-program/token";
 import { memoProgram } from "@solana-program/memo";
 import { systemProgram } from "@solana-program/system";
@@ -48,44 +52,77 @@ export function getWalletChain(cluster: ClusterMoniker) {
 
 export type RpcUrlOverrides = {
   rpcUrl: string;
-  rpcSubscriptionsUrl: string;
+  rpcSubscriptionsUrl?: string;
 };
+
+function overlayHttpSubscriptions<T extends object>(
+  original: T,
+  pollers: ReturnType<typeof createHttpPollingSubscriptions>
+): T {
+  return new Proxy(original, {
+    get(target, prop, receiver) {
+      if (prop === "signatureNotifications") {
+        return pollers.signatureNotifications;
+      }
+      if (prop === "slotNotifications") {
+        return pollers.slotNotifications;
+      }
+      if (prop === "accountNotifications") {
+        return pollers.accountNotifications;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
 
 /**
  * Builds the app-wide kit client. `urls` overrides the cluster's default RPC
  * endpoints — used by tests to point the client at an ephemeral Surfpool
  * instance on dynamic ports.
+ *
+ * Live websockets stay on localnet (and an explicit `rpcSubscriptionsUrl`).
+ * Everywhere else Kit's frozen subscriptions proxy is wrapped — not spread —
+ * with HTTP pollers, then the transaction executor is rebuilt so confirmations
+ * use those pollers. Spreading the proxy is a no-op (it has no own keys) and
+ * assigning onto it throws.
  */
 export function createAppClient(
   cluster: ClusterMoniker,
   urls?: RpcUrlOverrides
 ) {
-  const client = createClient()
+  const rpcUrl = urls?.rpcUrl ?? CLUSTER_URLS[cluster];
+  const liveWsUrl =
+    cluster === "localnet"
+      ? (urls?.rpcSubscriptionsUrl ?? WS_URLS[cluster])
+      : urls?.rpcSubscriptionsUrl;
+
+  return createClient()
     .use(walletSigner({ chain: WALLET_CHAINS[cluster] }))
     .use(
       solanaRpc({
-        rpcUrl: urls?.rpcUrl ?? CLUSTER_URLS[cluster],
-        rpcSubscriptionsUrl: urls?.rpcSubscriptionsUrl ?? WS_URLS[cluster],
+        rpcUrl,
+        rpcSubscriptionsUrl: liveWsUrl ?? rpcUrl.replace(/^http/, "ws"),
         transactionConfig: {
           microLamportsPerComputeUnit: 1000n as MicroLamports,
         },
       })
     )
+    .use((current) => {
+      if (liveWsUrl) return current;
+      return extendClient(current, {
+        rpcSubscriptions: overlayHttpSubscriptions(
+          current.rpcSubscriptions,
+          createHttpPollingSubscriptions(current.rpc)
+        ),
+      });
+    })
+    .use((current) =>
+      liveWsUrl ? current : rpcTransactionPlanExecutor()(current)
+    )
     .use(rpcAirdrop())
     .use(systemProgram())
     .use(tokenProgram())
-    .use(memoProgram())
-    .use((current) =>
-      cluster === "localnet"
-        ? current
-        : extendClient(current, {
-            rpcSubscriptions: {
-              ...current.rpcSubscriptions,
-              ...createHttpPollingSubscriptions(current.rpc),
-            },
-          })
-    );
-  return client;
+    .use(memoProgram());
 }
 
 export type AppClient = ReturnType<typeof createAppClient>;

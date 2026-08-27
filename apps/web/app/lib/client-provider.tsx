@@ -21,15 +21,18 @@ function getConfiguredClient(cluster: ClusterMoniker) {
 
   const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
   const rpcSubscriptionsUrl = process.env.NEXT_PUBLIC_SOLANA_WS_URL;
-  const configuredOverrides =
-    rpcUrl && rpcSubscriptionsUrl ? { rpcUrl, rpcSubscriptionsUrl } : null;
+  const configuredOverrides = rpcUrl
+    ? {
+        rpcUrl,
+        ...(rpcSubscriptionsUrl ? { rpcSubscriptionsUrl } : {}),
+      }
+    : null;
 
   const client =
     cluster === "mainnet"
       ? createAppClient(cluster, {
           rpcUrl: `${browserOrigin}/api/solana-rpc`,
-          rpcSubscriptionsUrl:
-            rpcSubscriptionsUrl || "wss://api.mainnet-beta.solana.com",
+          ...(rpcSubscriptionsUrl ? { rpcSubscriptionsUrl } : {}),
         })
       : createAppClient(cluster, configuredOverrides ?? undefined);
 

@@ -1,6 +1,8 @@
 import {
   commitmentComparator,
+  type Address,
   type Commitment,
+  type Lamports,
   type Signature,
 } from "@solana/kit";
 
@@ -15,6 +17,15 @@ type SignatureStatusRpc = {
   };
   getSlot: () => {
     send: (config?: { abortSignal?: AbortSignal }) => Promise<bigint>;
+  };
+  getAccountInfo: (
+    address: Address,
+    config?: { commitment?: Commitment; encoding?: "base64" }
+  ) => {
+    send: (config?: { abortSignal?: AbortSignal }) => Promise<{
+      context: { slot: bigint };
+      value: { lamports: Lamports } | null;
+    }>;
   };
 };
 
@@ -71,10 +82,29 @@ async function* pollSlots(rpc: SignatureStatusRpc, abortSignal: AbortSignal) {
   }
 }
 
+async function* pollAccount(
+  rpc: SignatureStatusRpc,
+  address: Address,
+  commitment: Commitment,
+  abortSignal: AbortSignal
+) {
+  while (!abortSignal.aborted) {
+    const { context, value } = await rpc
+      .getAccountInfo(address, { commitment, encoding: "base64" })
+      .send({ abortSignal });
+    yield {
+      context,
+      value: { lamports: value?.lamports ?? (0n as Lamports) },
+    };
+    await sleep(1_500, abortSignal);
+  }
+}
+
 /**
  * Kit confirms transactions over WebSockets. Public Solana WS endpoints are
- * blocked in the browser, so mainnet payments fail after wallet approval.
- * These HTTP pollers reuse the existing RPC proxy instead.
+ * blocked in the browser, and spreading the live subscriptions proxy can open
+ * every channel at once and crash desktop Chrome. These HTTP pollers reuse the
+ * existing RPC proxy instead.
  */
 export function createHttpPollingSubscriptions(rpc: SignatureStatusRpc) {
   return {
@@ -93,6 +123,17 @@ export function createHttpPollingSubscriptions(rpc: SignatureStatusRpc) {
       return {
         subscribe({ abortSignal }: { abortSignal: AbortSignal }) {
           return pollSlots(rpc, abortSignal);
+        },
+      };
+    },
+    accountNotifications(
+      address: Address,
+      config?: { commitment?: Commitment }
+    ) {
+      const commitment = config?.commitment ?? "confirmed";
+      return {
+        subscribe({ abortSignal }: { abortSignal: AbortSignal }) {
+          return pollAccount(rpc, address, commitment, abortSignal);
         },
       };
     },
