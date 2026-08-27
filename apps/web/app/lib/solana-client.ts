@@ -1,9 +1,15 @@
-import { createClient, MicroLamports } from "@solana/kit";
+import { createClient, extendClient, MicroLamports } from "@solana/kit";
 import { walletSigner } from "@solana/kit-plugin-wallet";
-import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import {
+  solanaRpc,
+  rpcAirdrop,
+  rpcTransactionPlanExecutor,
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
 import { tokenProgram } from "@solana-program/token";
 import { memoProgram } from "@solana-program/memo";
 import { systemProgram } from "@solana-program/system";
+import { createHttpPollingSubscriptions } from "./http-subscriptions";
 
 export type ClusterMoniker = "devnet" | "testnet" | "mainnet" | "localnet";
 
@@ -47,29 +53,78 @@ export function getWalletChain(cluster: ClusterMoniker) {
 
 export type RpcUrlOverrides = {
   rpcUrl: string;
-  rpcSubscriptionsUrl: string;
+  rpcSubscriptionsUrl?: string;
 };
+
+function overlayHttpSubscriptions<T extends object>(
+  original: T,
+  pollers: ReturnType<typeof createHttpPollingSubscriptions>
+): T {
+  return new Proxy(original, {
+    get(target, prop, receiver) {
+      if (prop === "signatureNotifications") {
+        return pollers.signatureNotifications;
+      }
+      if (prop === "slotNotifications") {
+        return pollers.slotNotifications;
+      }
+      if (prop === "accountNotifications") {
+        return pollers.accountNotifications;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
 
 /**
  * Builds the app-wide kit client. `urls` overrides the cluster's default RPC
  * endpoints — used by tests to point the client at an ephemeral Surfpool
  * instance on dynamic ports.
+ *
+ * Live websockets stay on localnet (and an explicit `rpcSubscriptionsUrl`).
+ * Everywhere else Kit's frozen subscriptions proxy is wrapped — not spread —
+ * with HTTP pollers, then the transaction executor *and* sendTransaction
+ * helpers are rebuilt so confirmations use those pollers. solanaRpc() installs
+ * send/confirm against the websocket client first; those closures would
+ * otherwise keep opening wss:// and throw 8190004 in the browser.
  */
 export function createAppClient(
   cluster: ClusterMoniker,
   urls?: RpcUrlOverrides
 ) {
+  const rpcUrl = urls?.rpcUrl ?? CLUSTER_URLS[cluster];
+  const liveWsUrl =
+    cluster === "localnet"
+      ? (urls?.rpcSubscriptionsUrl ?? WS_URLS[cluster])
+      : urls?.rpcSubscriptionsUrl;
+
   return createClient()
     .use(walletSigner({ chain: WALLET_CHAINS[cluster] }))
     .use(
       solanaRpc({
-        rpcUrl: urls?.rpcUrl ?? CLUSTER_URLS[cluster],
-        rpcSubscriptionsUrl: urls?.rpcSubscriptionsUrl ?? WS_URLS[cluster],
+        rpcUrl,
+        rpcSubscriptionsUrl: liveWsUrl ?? rpcUrl.replace(/^http/, "ws"),
         transactionConfig: {
           microLamportsPerComputeUnit: 1000n as MicroLamports,
         },
       })
     )
+    .use((current) => {
+      if (liveWsUrl) return current;
+      const withHttpSubscriptions = extendClient(current, {
+        rpcSubscriptions: overlayHttpSubscriptions(
+          current.rpcSubscriptions,
+          createHttpPollingSubscriptions(current.rpc)
+        ),
+      });
+      // solanaRpc() already installed send/confirm against the websocket
+      // client. Rebuild both the executor and the send helpers so they close
+      // over the HTTP pollers — otherwise confirmation still opens wss://.
+      const withHttpExecutor = rpcTransactionPlanExecutor()(
+        withHttpSubscriptions
+      );
+      return planAndSendTransactions()(withHttpExecutor);
+    })
     .use(rpcAirdrop())
     .use(systemProgram())
     .use(tokenProgram())

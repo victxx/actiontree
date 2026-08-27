@@ -25,6 +25,13 @@ export function parseTransactionError(err: unknown, cluster?: string): string {
   if (isInsufficientFundsError(combined)) {
     return `This wallet does not have enough SOL or tokens on ${network} for this action. Lower the amount, add funds, or switch networks.`;
   }
+  if (
+    combined.includes("8190004") ||
+    combined.includes("8190003") ||
+    combined.includes("WebSocket failed to connect")
+  ) {
+    return "The transaction could not be confirmed because Solana's live connection was blocked. Refresh and check the explorer before sending again.";
+  }
 
   const message = messages[messages.length - 1] ?? String(err);
   return message.length > 200 ? `${message.slice(0, 200)}...` : message;
