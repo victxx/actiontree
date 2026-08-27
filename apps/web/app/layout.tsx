@@ -5,6 +5,12 @@ import { Providers } from "./components/providers";
 import { AppHeader } from "./components/app-header";
 import { GridBackground } from "./components/grid-background";
 
+const vercelOrigin =
+  process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+const appOrigin =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (vercelOrigin ? `https://${vercelOrigin}` : "http://localhost:3000");
+
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
@@ -17,9 +23,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-  ),
+  metadataBase: new URL(appOrigin),
   title: "Actiontree — Your ENS is an app",
   description: "Executable ENS profiles powered by Solana Actions.",
   openGraph: {
