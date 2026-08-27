@@ -18,6 +18,10 @@ describe("createAppClient", () => {
       "function"
     );
     expect(client.rpcSubscriptions.accountNotifications).toBeTypeOf("function");
+    expect(
+      client.rpcSubscriptions.signatureNotifications("1".repeat(88) as never)
+    ).not.toHaveProperty("reactiveStore");
+    expect(client.sendTransaction).toBeTypeOf("function");
     expect(WebSocketSpy).not.toHaveBeenCalled();
   });
 });

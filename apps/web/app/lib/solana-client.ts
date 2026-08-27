@@ -5,6 +5,7 @@ import {
   rpcAirdrop,
   rpcTransactionPlanExecutor,
 } from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
 import { tokenProgram } from "@solana-program/token";
 import { memoProgram } from "@solana-program/memo";
 import { systemProgram } from "@solana-program/system";
@@ -82,9 +83,10 @@ function overlayHttpSubscriptions<T extends object>(
  *
  * Live websockets stay on localnet (and an explicit `rpcSubscriptionsUrl`).
  * Everywhere else Kit's frozen subscriptions proxy is wrapped — not spread —
- * with HTTP pollers, then the transaction executor is rebuilt so confirmations
- * use those pollers. Spreading the proxy is a no-op (it has no own keys) and
- * assigning onto it throws.
+ * with HTTP pollers, then the transaction executor *and* sendTransaction
+ * helpers are rebuilt so confirmations use those pollers. solanaRpc() installs
+ * send/confirm against the websocket client first; those closures would
+ * otherwise keep opening wss:// and throw 8190004 in the browser.
  */
 export function createAppClient(
   cluster: ClusterMoniker,
@@ -109,16 +111,20 @@ export function createAppClient(
     )
     .use((current) => {
       if (liveWsUrl) return current;
-      return extendClient(current, {
+      const withHttpSubscriptions = extendClient(current, {
         rpcSubscriptions: overlayHttpSubscriptions(
           current.rpcSubscriptions,
           createHttpPollingSubscriptions(current.rpc)
         ),
       });
+      // solanaRpc() already installed send/confirm against the websocket
+      // client. Rebuild both the executor and the send helpers so they close
+      // over the HTTP pollers — otherwise confirmation still opens wss://.
+      const withHttpExecutor = rpcTransactionPlanExecutor()(
+        withHttpSubscriptions
+      );
+      return planAndSendTransactions()(withHttpExecutor);
     })
-    .use((current) =>
-      liveWsUrl ? current : rpcTransactionPlanExecutor()(current)
-    )
     .use(rpcAirdrop())
     .use(systemProgram())
     .use(tokenProgram())
